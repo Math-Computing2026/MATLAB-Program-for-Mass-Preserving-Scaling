@@ -1,0 +1,41 @@
+
+function [u,u_hist,t] = Standard_ETD1(N,xa,xb,tau,T,epsilon,u0)
+
+
+nu = 1; Nt = round(T/tau); Nx = N; Ny = N;
+hx = (xb-xa)/Nx; j = (0:Nx-1)'; x = xa + j*hx; hy = hx; y = x;
+[X,Y] = meshgrid(x,y);
+f = @(u) u.^3 - u; beta = 1; kappa = 3;
+
+
+
+
+kx = [0:Nx/2-1,-Nx/2:-1]'; ky = [0:Ny/2-1,-Ny/2:-1]';
+Lx = -4/hx^2 * sin(pi*kx/Nx).^2; Ly = -4/hy^2 * sin(pi*ky/Ny).^2; 
+[LX,LY] = meshgrid(Lx,Ly);
+L_hat =  LX + LY;
+Lk_hat = epsilon^2/nu * L_hat - kappa;
+
+z = tau*Lk_hat;
+phi0 = @(z) exp(z);
+phi1 = @(z) ( exp(z)-1 ) ./ z;
+B_hat = 1/nu * (1 ./ (1-nu*L_hat) - 1);
+
+u = u0; t = (0:Nt)'*tau;
+u_hist = zeros(Nt+1,1); u_hist(1) = max(abs(u0(:)));
+for n = 1:Nt
+    u_hat = fft2(u);
+    
+    F0 = f(u) - epsilon^2/nu*u; F0_hat = fft2(F0);
+    Nu_hat = B_hat .* F0_hat + kappa * u_hat;
+    Nu = real(ifft2(Nu_hat));
+
+    Nu = max(min(Nu, kappa*beta), -kappa*beta); Nu_hat = fft2(Nu);
+    
+    u_new_hat = phi0(z) .* u_hat + tau * phi1(z) .* Nu_hat;
+    u_new = real(ifft2(u_new_hat));
+    u = u_new; u_hist(n+1,1) = max(abs(u(:)));
+end
+
+end
+
